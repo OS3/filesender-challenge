@@ -118,7 +118,10 @@ var html5 = false;
 html5 = (window.File && window.FileReader && window.FileList && window.Blob && window.FormData) ? true : false;
 	if(window.opera){html5=false;};
 $(function() {
-	
+
+//check if webworkers are available
+html5webworkers = typeof(Worker)!=="undefined";
+
 	// display topmenu, content and userinformation
 	$("#topmenu").show();
 	$("#content").show();

@@ -171,7 +171,11 @@ function startupload()
                 vid = data.vid;
                 fdata[n].bytesUploaded = parseFloat(data.filesize);
                 updatepb(fdata[n].bytesUploaded, fdata[n].fileSize);	
-                uploadFile();
+                if(html5webworkers){
+                    uploadFileWebworkers();
+                }else{
+                    uploadFile();
+                }
             }
         },
         error:function(xhr,err){
@@ -181,59 +185,41 @@ function startupload()
     });
 }
 
+function uploadFileWebworkers() {
+    var files = document.getElementById("fileToUpload").files;
+    var path = document.location.pathname;
+    var dir = path.substring(path.indexOf('/', 1)+1, path.lastIndexOf('/'));
+
+    $("head").append('<script type="text/javascript" src="lib/tsunami/js/tsunami.js"></script>');
+
+    if(fdata[n].bytesUploaded > fdata[n].bytesTotal -1 ) {
+        doUploadComplete();
+        return;
+    }
+
+    var tsunami = new Tsunami({
+        uri: dir+'/'+uploadURI + "?type=tsunami&vid="+vid,
+        simultaneousUploads: 6,
+        chunkSize: 5*1024*1024,
+        workerFile: 'lib/tsunami/js/tsunami_worker.js',
+        log: true,
+        onComplete: doUploadComplete,
+        onProgress: updatepb
+    });
+    tsunami.addFiles(files);
+    tsunami.upload();
+}
+
 function uploadFile() {
 		
     // move to next chunk
     var file = document.getElementById("fileToUpload").files[0];
     var txferSize = chunksize;
 
-    if(fdata[n].bytesUploaded > fdata[n].bytesTotal -1 )
-    {
-        var query = $("#form1").serializeArray(), json = {};
-        $.ajax({
-            type: "POST",
-            url: "fs_upload.php?type=uploadcomplete&vid="+vid
-            ,
-            success:function( data ) {
-                var data =  parseJSON(data);
-                if(data.errors)
-                {
-                    $.each(data.errors, function(i,result){
-                        if(result == "err_token") {
-                            $("#dialog-tokenerror").dialog("open");
-                        } // token missing or error
-                        if(result == "err_cannotrenamefile") {
-                            window.location.href="index.php?s=uploaderror";
-                            return;
-                        } //	
-                        if(result == "err_emailnotsent") {
-                            window.location.href="index.php?s=emailsenterror";
-                            return;
-                        } //
-                        if(result == "err_filesizeincorrect") {
-                            window.location.href="index.php?s=filesizeincorrect";
-                            return;
-                        } //	
-                    })
-                } else {
-                    if(data.status && data.status == "complete"){
-                        window.location.href="index.php?s=complete";
-                        return;
-                    }
-                    if(data.status && data.status == "completev"){
-                        window.location.href="index.php?s=completev";
-                        return;
-                    }
-                }
-            }
-            ,
-            error:function(xhr,err){
-                // error function to display error message e.g.404 page not found
-                ajaxerror(xhr.readyState,xhr.status,xhr.responseText);
-            }
-        });
+    if(fdata[n].bytesUploaded > fdata[n].bytesTotal -1 ) {
+        doUploadComplete();
         return;
-    } 
+    }
 			
     if(fdata[n].bytesUploaded + txferSize > fdata[n].fileSize)
     {
@@ -265,7 +251,7 @@ function uploadFile() {
                     return;			
                 }
                 fdata[n].bytesUploaded = parseFloat(xhr.responseText);
-                updatepb(fdata[n].bytesUploaded,fdata[n].bytesTotal);	
+                updatepb(fdata[n].bytesUploaded,fdata[n].bytesTotal);
                 uploadFile();
             } else {
                 errorDialog("There was a problem retrieving the data:\n" + req.statusText);
@@ -275,6 +261,52 @@ function uploadFile() {
     }
 
     return true;
+}
+
+function doUploadComplete(){
+    var query = $("#form1").serializeArray(), json = {};
+    $.ajax({
+        type: "POST",
+        url: "fs_upload.php?type=uploadcomplete&vid="+vid
+        ,
+        success:function( data ) {
+            var data =  parseJSON(data);
+            if(data.errors)
+            {
+                $.each(data.errors, function(i,result){
+                    if(result == "err_token") {
+                        $("#dialog-tokenerror").dialog("open");
+                    } // token missing or error
+                    if(result == "err_cannotrenamefile") {
+                        window.location.href="index.php?s=uploaderror";
+                        return;
+                    } //    
+                    if(result == "err_emailnotsent") {
+                        window.location.href="index.php?s=emailsenterror";
+                        return;
+                    } //
+                    if(result == "err_filesizeincorrect") {
+                        window.location.href="index.php?s=filesizeincorrect";
+                        return;
+                    } //    
+                })
+            } else {
+                if(data.status && data.status == "complete"){
+                    window.location.href="index.php?s=complete";
+                    return;
+                }
+                if(data.status && data.status == "completev"){
+                    window.location.href="index.php?s=completev";
+                    return;
+                }
+            }
+        }
+        ,
+        error:function(xhr,err){
+            // error function to display error message e.g.404 page not found
+            ajaxerror(xhr.readyState,xhr.status,xhr.responseText);
+        }
+    });
 }
 
 function updateTransferSpeed() {
