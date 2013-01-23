@@ -17,13 +17,14 @@ class Tsunami {
 
         $this->fd = fopen($this->filename, 'a');
         if($this->fd === false){
-            $this->sendReply('error', 'Failed to create or open file');
+            $this->sendReply('error', 'Failed to create or open file'.$php_errormsg);
         }
     }
 
     private function defaultConfig() {
         return array(
-            'tmp_dir'=>sys_get_temp_dir()
+            'tmp_dir'=>sys_get_temp_dir(),
+            'reply_log'=>false
         );
     }
 
@@ -88,6 +89,8 @@ class Tsunami {
         foreach($tempFiles as $tempFile){
             if($this->filesize == $tempFile['startByte']){
                 $this->filesize += $this->appendChunk($tempFile['name'], $tempFile['startByte']);
+                unlink($tempFile['name']);
+            }else if($this->filesize > $tempFile['startByte']){
                 unlink($tempFile['name']);
             }else{
                 // Exit foreach loop: We can never append the rest of the chunks
@@ -188,10 +191,14 @@ class Tsunami {
         $this->jsonReply['message'] =  $message;
         $this->jsonReply['filesize'] = $this->filesize;
 
+        if(!$this->config['reply_log']){
+            unset($this->jsonReply['log']);
+        }
+
         header('Cache-Control: no-cache, must-revalidate');
         header('Expires: Mon, 26 Jul 1997 05:00:00 GMT');
         header('Content-type: application/json');
-        echo json_encode($this->jsonReply);
+        echo json_encode( $this->jsonReply);
         die();
     }
 
