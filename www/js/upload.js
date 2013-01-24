@@ -59,6 +59,8 @@ var uploadURI = "fs_upload.php";
 var fdata = []; // array of each file to be uploaded
 var n = 0; // file int currently uploading
 
+
+var startTime = 0;
 // a unique is created for each file that is uploaded.
 // An object with the unique stores all relevant information about the file upload
 	
@@ -171,6 +173,8 @@ function startupload()
                 vid = data.vid;
                 fdata[n].bytesUploaded = parseFloat(data.filesize);
                 updatepb(fdata[n].bytesUploaded, fdata[n].fileSize);	
+
+                startTime = new Date().getTime();
                 if(html5webworkers){
                     uploadFileWebworkers();
                 }else{
@@ -188,7 +192,7 @@ function startupload()
 function uploadFileWebworkers() {
     var files = document.getElementById("fileToUpload").files;
     var path = document.location.pathname;
-    var dir = path.substring(path.indexOf('/', 1)+1, path.lastIndexOf('/'));
+    var dir = path.substring(0, path.lastIndexOf('/'));
 
     $("head").append('<script type="text/javascript" src="lib/tsunami/js/tsunami.js"></script>');
 
@@ -197,12 +201,21 @@ function uploadFileWebworkers() {
         return;
     }
 
+    chunksize = parseInt($('#chunksize').val())*1024*1024;
+    console.log('Chunksize: '+ chunksize);
+
+    workerCount = parseInt($('#workerCount').val());
+    console.log('Using '+ workerCount+' worker(s)');
+    jobsPerWorker = parseInt($('#jobsPerWorker').val());
+    console.log('Setting '+ jobsPerWorker+' job(s) per worker');
+
     var tsunami = new Tsunami({
-        uri: dir+'/'+uploadURI + "?type=tsunami&vid="+vid,
-        simultaneousUploads: 6,
-        chunkSize: 5*1024*1024,
+        uri: dir + '/' +uploadURI + "?type=tsunami&vid="+vid,
+        simultaneousUploads: workerCount,
+        jobsPerWorker: jobsPerWorker,
+        chunkSize: chunksize,
         workerFile: 'lib/tsunami/js/tsunami_worker.js',
-        log: true,
+        log: false,
         onComplete: doUploadComplete,
         onProgress: updatepb
     });
@@ -264,6 +277,13 @@ function uploadFile() {
 }
 
 function doUploadComplete(){
+    var end  = new Date().getTime();
+    var time = end-startTime;
+    var speed = fdata[n].bytesTotal / (time /1000) / 1024 / 1024 * 8;
+
+    console.log('Upload time:'+ (time /1000) + 'sec');
+    console.log('Speed: '+ speed.toFixed(2)+'Mbit/s' );
+
     var query = $("#form1").serializeArray(), json = {};
     $.ajax({
         type: "POST",
