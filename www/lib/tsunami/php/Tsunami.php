@@ -9,7 +9,7 @@ class Tsunami {
             $filename,
             $fd,
             $config,
-            $jsonReply=array();
+            $jsonReply=array('log'=>'');
 
     function __construct($filename, $config=array()) {
         $this->filename = $filename;
